@@ -12,7 +12,7 @@ use cw20::{Cw20ExecuteMsg, Cw20QueryMsg, BalanceResponse as Cw20BalanceResponse}
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, QueryMsg, InstantiateMsg};
 use crate::state::{Config, CONFIG, PROJECTSTATES, ProjectState, BackerState,
-        PROJECT_SEQ, COMMUNITY, Milestone, Vote, save_projectstate};
+        PROJECT_SEQ, COMMUNITY, Milestone, Vote, save_projectstate, TeamMember};
 
 use crate::market::{ExecuteMsg as AnchorMarket, Cw20HookMsg,
     QueryMsg as AnchorQuery, EpochStateResponse};                    
@@ -76,38 +76,36 @@ pub fn execute(
         ExecuteMsg::SetConfig{ admin, wefund, anchor_market, aust_token } 
             => try_setconfig(deps, info, admin, wefund, anchor_market, aust_token),
         ExecuteMsg::AddProject { 
-            project_name,
-            project_createddate,
+            project_company,
+            project_title,
             project_description,
-            project_teamdescription,
-            project_category,
-            project_subcategory,
-            project_chain,
-            project_collected,
-            project_deadline,
-            project_website,
-            project_icon,
-            project_email,
+            project_ecosystem,
+            project_createddate,
+            project_saft,
+            project_logo,
             project_whitepaper,
+            project_website,
+            project_email,
             creator_wallet,
+            project_collected,
             project_milestones,
+            project_teammembers,
         } => 
             try_addproject(deps, info, 
-                project_name,
-                project_createddate,
+                project_company,
+                project_title,
                 project_description,
-                project_teamdescription,
-                project_category,
-                project_subcategory,
-                project_chain,
-                project_collected,
-                project_deadline,
-                project_website,
-                project_icon,
-                project_email,
+                project_ecosystem,
+                project_createddate,
+                project_saft,
+                project_logo,
                 project_whitepaper,
+                project_website,
+                project_email,
                 creator_wallet,
+                project_collected,
                 project_milestones,
+                project_teammembers,
             ),
 
         ExecuteMsg::Back2Project { project_id, backer_wallet , otherchain, otherchain_wallet} => 
@@ -790,21 +788,20 @@ pub fn try_failproject(
 pub fn try_addproject(
     deps:DepsMut,
     _info: MessageInfo,
-    _project_name: String,
-    _project_createddate: String,
+    _project_company: String,
+    _project_title: String,
     _project_description: String,
-    _project_teamdescription: String,
-    _project_category: String,
-    _project_subcategory: String,
-    _project_chain:String,
-    _project_collected: Uint128,
-    _project_deadline: String,
-    _project_website: String,
-    _project_icon: String,
-    _project_email: String,
+    _project_ecosystem: String,
+    _project_createddate: String,
+    _project_saft: String,
+    _project_logo: String,
     _project_whitepaper: String,
+    _project_website: String,
+    _project_email: String,
     _creator_wallet: String,
+    _project_collected: Uint128,
     _project_milestones: Vec<Milestone>,
+    _project_teammembers: Vec<TeamMember>,
 ) -> Result<Response, ContractError> 
 {
     let community = COMMUNITY.load(deps.storage).unwrap();
@@ -816,18 +813,16 @@ pub fn try_addproject(
     }
 
     let new_project:ProjectState = ProjectState{
-        project_name: _project_name,
-        project_createddate: _project_createddate,
+        project_company: _project_company,
+        project_title: _project_title,
         project_description: _project_description,
-        project_teamdescription: _project_teamdescription,
-        project_category: _project_category,
-        project_subcategory: _project_subcategory,
-        project_chain: _project_chain,
-        project_deadline: _project_deadline,
-        project_website: _project_website,
-        project_icon: _project_icon,
-        project_email: _project_email,
+        project_ecosystem: _project_ecosystem,
+        project_createddate: _project_createddate,
+        project_saft: _project_saft,
+        project_logo: _project_logo,
         project_whitepaper: _project_whitepaper,
+        project_website: _project_website,
+        project_email: _project_email,
 
         project_id: Uint128::zero(), //auto increment
         creator_wallet: deps.api.addr_validate(&_creator_wallet).unwrap(),
@@ -845,6 +840,8 @@ pub fn try_addproject(
 
         community_votes: community_votes,
         community_vote_deadline: Uint128::zero(),
+
+        teammember_states: _project_teammembers,
     };
 
     save_projectstate(deps, &new_project)?;

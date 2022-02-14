@@ -42,23 +42,27 @@ pub struct Milestone{
     pub milestone_status: Uint128, //0:voting, 1:releasing 2:released
     pub milestone_votes: Vec<Vote>,
 }
-
+//------------Team Description-------------------------------
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TeamMember{
+    pub teammember_description: String,
+    pub teammember_linkedin: String,
+    pub teammember_role: String,
+}
 //------------ project state--------------------------------
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ProjectState{
 //---------mata data----------------------------------------------------------
-    pub project_name: String,
-    pub project_createddate: String,
+    pub project_company: String,
+    pub project_title: String,
     pub project_description: String,
-    pub project_teamdescription: String,
-    pub project_category: String,
-    pub project_subcategory: String,
-    pub project_chain: String,
-    pub project_deadline: String,
-    pub project_website: String,
-    pub project_icon: String,
-    pub project_email: String,
+    pub project_ecosystem: String,
+    pub project_createddate: String,
+    pub project_saft: String,
+    pub project_logo: String,
     pub project_whitepaper: String,
+    pub project_website: String,
+    pub project_email: String,
 //------------------------------------------------------------------------------
     pub project_id: Uint128,
     pub creator_wallet: Addr,
@@ -81,6 +85,8 @@ pub struct ProjectState{
 //---------community votes--------------------------------------------
     pub community_votes: Vec<Vote>,
     pub community_vote_deadline: Uint128,
+//---------team members-----------------------------------------------
+    pub teammember_states: Vec<TeamMember>,
 }
 pub const PROJECT_SEQ: Item<Uint128> = Item::new("prj_seq");
 pub const PROJECTSTATES: Map<U128Key, ProjectState> = Map::new("prj");
