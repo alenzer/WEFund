@@ -50,18 +50,17 @@
           "type": "object",
           "required": [
             "creator_wallet",
-            "project_category",
-            "project_chain",
             "project_collected",
+            "project_company",
             "project_createddate",
-            "project_deadline",
             "project_description",
+            "project_ecosystem",
             "project_email",
-            "project_icon",
+            "project_logo",
             "project_milestones",
-            "project_name",
-            "project_subcategory",
-            "project_teamdescription",
+            "project_saft",
+            "project_teammembers",
+            "project_title",
             "project_website",
             "project_whitepaper"
           ],
@@ -69,28 +68,25 @@
             "creator_wallet": {
               "type": "string"
             },
-            "project_category": {
-              "type": "string"
-            },
-            "project_chain": {
-              "type": "string"
-            },
             "project_collected": {
               "$ref": "#/definitions/Uint128"
             },
-            "project_createddate": {
+            "project_company": {
               "type": "string"
             },
-            "project_deadline": {
+            "project_createddate": {
               "type": "string"
             },
             "project_description": {
               "type": "string"
             },
+            "project_ecosystem": {
+              "type": "string"
+            },
             "project_email": {
               "type": "string"
             },
-            "project_icon": {
+            "project_logo": {
               "type": "string"
             },
             "project_milestones": {
@@ -99,13 +95,16 @@
                 "$ref": "#/definitions/Milestone"
               }
             },
-            "project_name": {
+            "project_saft": {
               "type": "string"
             },
-            "project_subcategory": {
-              "type": "string"
+            "project_teammembers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/TeamMember"
+              }
             },
-            "project_teamdescription": {
+            "project_title": {
               "type": "string"
             },
             "project_website": {
@@ -149,10 +148,18 @@
           "type": "object",
           "required": [
             "backer_wallet",
+            "otherchain",
+            "otherchain_wallet",
             "project_id"
           ],
           "properties": {
             "backer_wallet": {
+              "type": "string"
+            },
+            "otherchain": {
+              "type": "string"
+            },
+            "otherchain_wallet": {
               "type": "string"
             },
             "project_id": {
@@ -432,6 +439,25 @@
           "items": {
             "$ref": "#/definitions/Vote"
           }
+        }
+      }
+    },
+    "TeamMember": {
+      "type": "object",
+      "required": [
+        "teammember_description",
+        "teammember_linkedin",
+        "teammember_role"
+      ],
+      "properties": {
+        "teammember_description": {
+          "type": "string"
+        },
+        "teammember_linkedin": {
+          "type": "string"
+        },
+        "teammember_role": {
+          "type": "string"
         }
       }
     },
