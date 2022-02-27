@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    Addr, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    Addr, to_binary, DepsMut, Env, MessageInfo, Response, StdResult,
     Uint128, CosmosMsg, BankMsg, QueryRequest, BankQuery, WasmMsg,
     Coin, AllBalanceResponse
 };
@@ -10,8 +10,8 @@ use cw_storage_plus::{U128Key};
 use cw20::{Cw20ExecuteMsg, Cw20QueryMsg, BalanceResponse as Cw20BalanceResponse};
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, QueryMsg, InstantiateMsg};
-use crate::state::{Config, CONFIG, PROJECTSTATES, ProjectState, BackerState,
+use crate::msg::{ExecuteMsg, InstantiateMsg};
+use crate::state::{Config, CONFIG, PROJECTSTATES, ProjectState, BackerState, VestingParameter,
         PROJECT_SEQ, COMMUNITY, Milestone, Vote, save_projectstate, TeamMember};
 
 use crate::market::{ExecuteMsg as AnchorMarket, Cw20HookMsg,
@@ -90,6 +90,7 @@ pub fn execute(
             project_collected,
             project_milestones,
             project_teammembers,
+            vesting
         } => 
             try_addproject(deps, info, 
                 project_company,
@@ -106,6 +107,7 @@ pub fn execute(
                 project_collected,
                 project_milestones,
                 project_teammembers,
+                vesting
             ),
 
         ExecuteMsg::Back2Project { project_id, backer_wallet , otherchain, otherchain_wallet} => 
@@ -135,6 +137,9 @@ pub fn execute(
         ExecuteMsg::SetCommunityVote{project_id, wallet, voted} =>
             try_setcommunityvote(deps, project_id, wallet, voted),
 
+        ExecuteMsg::SetFundraisingStage{project_id, stage} =>
+            try_setfundraisingstage(deps, project_id, stage),
+        
         ExecuteMsg::SetMilestoneVote{project_id, wallet, voted} =>
             try_setmilestonevote(deps, _env, info, project_id, wallet, voted),
 
@@ -356,6 +361,21 @@ pub fn try_setmilestonevote(deps: DepsMut, _env:Env, info:MessageInfo, project_i
     )
 }
 
+pub fn try_setfundraisingstage(deps: DepsMut, project_id: Uint128, stage: String)
+    -> Result<Response, ContractError>
+{
+    PROJECTSTATES.update(deps.storage, project_id.u128().into(), |op| match op {
+        None => Err(ContractError::NotRegisteredProject {}),
+        Some(mut project) => {
+            project.fundrasing_stage = stage;
+            Ok(project)
+        }
+    })?;
+
+    Ok(Response::new()
+    .add_attribute("action", "Set Fundraising stage")
+    )
+}
 pub fn try_setcommunityvote(deps: DepsMut, project_id: Uint128, wallet: String, voted: bool)
     -> Result<Response, ContractError>
 {
@@ -802,6 +822,7 @@ pub fn try_addproject(
     _project_collected: Uint128,
     _project_milestones: Vec<Milestone>,
     _project_teammembers: Vec<TeamMember>,
+    _vesting: Vec<VestingParameter>
 ) -> Result<Response, ContractError> 
 {
     let community = COMMUNITY.load(deps.storage).unwrap();
@@ -827,7 +848,8 @@ pub fn try_addproject(
         project_id: Uint128::zero(), //auto increment
         creator_wallet: deps.api.addr_validate(&_creator_wallet).unwrap(),
         project_collected: _project_collected,
-        project_status: Uint128::zero(), //wefund voting status
+        project_status: Uint128::zero(),
+        fundrasing_stage: "seed".to_string(),
 
         backerbacked_amount: Uint128::zero(),
         communitybacked_amount: Uint128::zero(),
@@ -842,6 +864,8 @@ pub fn try_addproject(
         community_vote_deadline: Uint128::zero(),
 
         teammember_states: _project_teammembers,
+
+        vesting: _vesting
     };
 
     save_projectstate(deps, &new_project)?;
@@ -991,66 +1015,4 @@ pub fn try_back2project(
         CosmosMsg::Bank(bank_wefund)])
     .add_attribute("action", "back to project")
     )
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
-    match msg {
-        QueryMsg::GetBalance{ wallet } => to_binary(&query_balance(deps, _env, wallet)?),
-        QueryMsg::GetConfig{ } => to_binary(&query_getconfig(deps)?),
-        QueryMsg::GetAllProject{ } => to_binary(&query_allproject(deps)?),
-        QueryMsg::GetProject{ project_id } => to_binary(&query_project(deps, project_id)?),
-        QueryMsg::GetBacker{ project_id } => to_binary(&query_backer(deps, project_id)?),
-        QueryMsg::GetCommunitymembers{ } => to_binary(&query_communitymembers(deps)?),
-    }
-}
-
-fn query_communitymembers(deps:Deps) -> StdResult<Vec<Addr>>{
-    let community = COMMUNITY.load(deps.storage).unwrap();
-    Ok(community)
-}
-fn query_balance(deps:Deps, _env:Env, wallet:String) -> StdResult<AllBalanceResponse>{
-
-    // let uusd_denom = String::from("uusd");
-    let mut balance: AllBalanceResponse = deps.querier.query(
-        &QueryRequest::Bank(BankQuery::AllBalances {
-            address: wallet.clone(),
-        }
-    ))?;
-
-    let config = CONFIG.load(deps.storage).unwrap();
-
-    let aust_balance: Cw20BalanceResponse = deps.querier.query_wasm_smart(
-        config.aust_token,
-        &Cw20QueryMsg::Balance{
-            address: wallet,
-        }
-    )?;
-    balance.amount.push(Coin::new(aust_balance.balance.u128(), "aust"));
-
-    Ok(balance)
-}
-fn query_getconfig(deps:Deps) -> StdResult<Config> {
-    let config = CONFIG.load(deps.storage).unwrap();
-    Ok(config)
-}
-fn query_allproject(deps:Deps) -> StdResult<Vec<ProjectState>> {
-    let all: StdResult<Vec<_>> = PROJECTSTATES.range(deps.storage, None, None, 
-        cosmwasm_std::Order::Ascending).collect();
-    let all = all.unwrap();
-
-    let mut all_project:Vec<ProjectState> = Vec::new();
-    for x in all{
-        all_project.push(x.1);
-    }
-    Ok(all_project)
-}
-fn query_backer(deps:Deps, id:Uint128) -> StdResult<Vec<BackerState>>{
-    let x = PROJECTSTATES.load(deps.storage, id.u128().into())?;
-    Ok(x.backer_states)
-}
-fn query_project(deps:Deps, id:Uint128) -> StdResult<ProjectState>{
-    let x = PROJECTSTATES.load(deps.storage, id.u128().into())?;
-    
-    Ok(x)
 }

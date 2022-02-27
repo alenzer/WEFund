@@ -49,6 +49,17 @@ pub struct TeamMember{
     pub teammember_linkedin: String,
     pub teammember_role: String,
 }
+//--------------Milestone---------------------------------------
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct VestingParameter{
+    pub stage: String,
+    pub stage_price: Uint128,
+    pub stage_amount: Uint128,
+    pub stage_soon: Uint128,
+    pub stage_after: Uint128,
+    pub stage_period: Uint128   
+}
+
 //------------ project state--------------------------------
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ProjectState{
@@ -70,6 +81,7 @@ pub struct ProjectState{
 
     //0:wefund voting 1:community voting 2:fundrasing 3:releasing 4:done 5:fail
     pub project_status: Uint128, 
+    pub fundrasing_stage: String, //"seed", "presale", "idos"
 
     pub backerbacked_amount: Uint128,
     pub communitybacked_amount: Uint128,
@@ -87,6 +99,8 @@ pub struct ProjectState{
     pub community_vote_deadline: Uint128,
 //---------team members-----------------------------------------------
     pub teammember_states: Vec<TeamMember>,
+//---------vesting-----------------------------------------------
+    pub vesting: Vec<VestingParameter>,
 }
 pub const PROJECT_SEQ: Item<Uint128> = Item::new("prj_seq");
 pub const PROJECTSTATES: Map<U128Key, ProjectState> = Map::new("prj");

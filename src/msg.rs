@@ -1,7 +1,7 @@
 use cosmwasm_std::{Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use crate::state::{Milestone, TeamMember};
+use crate::state::{Milestone, TeamMember, VestingParameter};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
@@ -31,6 +31,7 @@ pub enum ExecuteMsg {
         project_collected: Uint128,
         project_milestones: Vec<Milestone>,
         project_teammembers: Vec<TeamMember>,
+        vesting: Vec<VestingParameter>
     },
     RemoveProject{project_id: Uint128 },
 
@@ -47,7 +48,8 @@ pub enum ExecuteMsg {
 
     WefundApprove{project_id:Uint128, deadline:Uint128},
     SetCommunityVote{project_id: Uint128, wallet: String, voted: bool},
-
+    SetFundraisingStage{project_id: Uint128, stage: String},
+    
     SetMilestoneVote{project_id: Uint128, wallet:String, voted: bool},
 
     ReleaseMilestone{project_id: Uint128},
