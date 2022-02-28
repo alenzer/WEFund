@@ -367,7 +367,7 @@ pub fn try_setfundraisingstage(deps: DepsMut, project_id: Uint128, stage: String
     PROJECTSTATES.update(deps.storage, project_id.u128().into(), |op| match op {
         None => Err(ContractError::NotRegisteredProject {}),
         Some(mut project) => {
-            project.fundrasing_stage = stage;
+            project.fundraising_stage = stage;
             Ok(project)
         }
     })?;
@@ -849,7 +849,7 @@ pub fn try_addproject(
         creator_wallet: deps.api.addr_validate(&_creator_wallet).unwrap(),
         project_collected: _project_collected,
         project_status: Uint128::zero(),
-        fundrasing_stage: "seed".to_string(),
+        fundraising_stage: "seed".to_string(),
 
         backerbacked_amount: Uint128::zero(),
         communitybacked_amount: Uint128::zero(),

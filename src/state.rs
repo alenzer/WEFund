@@ -81,7 +81,7 @@ pub struct ProjectState{
 
     //0:wefund voting 1:community voting 2:fundrasing 3:releasing 4:done 5:fail
     pub project_status: Uint128, 
-    pub fundrasing_stage: String, //"seed", "presale", "idos"
+    pub fundraising_stage: String, //"seed", "presale", "idos"
 
     pub backerbacked_amount: Uint128,
     pub communitybacked_amount: Uint128,
