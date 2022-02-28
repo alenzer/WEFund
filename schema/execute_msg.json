@@ -29,6 +29,18 @@
                 "null"
               ]
             },
+            "fundraising_contract": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "vesting_contract": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "wefund": {
               "type": [
                 "string",
@@ -63,6 +75,7 @@
             "project_title",
             "project_website",
             "project_whitepaper",
+            "token_addr",
             "vesting"
           ],
           "properties": {
@@ -114,6 +127,9 @@
             "project_whitepaper": {
               "type": "string"
             },
+            "token_addr": {
+              "type": "string"
+            },
             "vesting": {
               "type": "array",
               "items": {
@@ -155,12 +171,17 @@
           "type": "object",
           "required": [
             "backer_wallet",
+            "fundraising_stage",
             "otherchain",
             "otherchain_wallet",
-            "project_id"
+            "project_id",
+            "token_amount"
           ],
           "properties": {
             "backer_wallet": {
+              "type": "string"
+            },
+            "fundraising_stage": {
               "type": "string"
             },
             "otherchain": {
@@ -170,6 +191,9 @@
               "type": "string"
             },
             "project_id": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "token_amount": {
               "$ref": "#/definitions/Uint128"
             }
           }
