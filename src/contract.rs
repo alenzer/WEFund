@@ -902,8 +902,7 @@ pub fn try_addproject(
     save_projectstate(deps.storage, &new_project)?;
 
     let config = CONFIG.load(deps.storage)?;
-    if config.fundraising_contract != Addr::unchecked("".to_string()) &&
-        token_addr != Addr::unchecked("".to_string())
+    if config.fundraising_contract != "".to_string() && token_addr != "".to_string()
     {
         //----------add fundraising project------------------------
         let add_fundraising_project = WasmMsg::Execute {
@@ -1036,17 +1035,37 @@ pub fn try_back2project(
             x.milestone_states[i].milestone_votes = milestone_votes.clone();
         }
 
-        //---------start vesting-----------------------------
-        let start_vesting = WasmMsg::Execute {
-            contract_addr: config.fundraising_contract.to_string(),
-            msg: to_binary(
-                &Fundraising::StartVesting {
-                    project_id: x.project_id
-                }
-            ).unwrap(),
-            funds: vec![]
-        };
-        msgs.push(CosmosMsg::Wasm(start_vesting));
+        let vesting = x.vesting.clone();
+        let mut token_amount = Uint128::zero();
+        for stage in vesting {
+            token_amount += stage.stage_amount;
+        }
+
+        if config.fundraising_contract != "".to_string() && x.token_addr != "".to_string() {
+            let token_transfer = WasmMsg::Execute {
+                contract_addr: x.token_addr.to_string(),
+                msg: to_binary(
+                    &Cw20ExecuteMsg::TransferFrom{
+                        owner: x.creator_wallet.to_string(),
+                        recipient: config.vesting_contract.to_string(),
+                        amount: token_amount
+                    }
+                ).unwrap(),
+                funds: vec![]
+            };
+            msgs.push(CosmosMsg::Wasm(token_transfer));
+            //---------start vesting-----------------------------
+            let start_vesting = WasmMsg::Execute {
+                contract_addr: config.fundraising_contract.to_string(),
+                msg: to_binary(
+                    &Fundraising::StartVesting {
+                        project_id: x.project_id
+                    }
+                ).unwrap(),
+                funds: vec![]
+            };
+            msgs.push(CosmosMsg::Wasm(start_vesting));
+        }
     }
 
     PROJECTSTATES.update(deps.storage, project_id.u128().into(), |op| match op {
@@ -1085,8 +1104,7 @@ pub fn try_back2project(
     msgs.push(CosmosMsg::Bank(bank_wefund));
 
     let x = PROJECTSTATES.load(deps.storage, project_id.u128().into())?;
-    let token_addr = x.token_addr;
-    if token_addr != "".to_string() {
+    if config.fundraising_contract != "".to_string() && x.token_addr != "".to_string() {
         //----------add fundraising user------------------------
         let add_fundraising_user = WasmMsg::Execute {
             contract_addr: config.fundraising_contract.to_string(),
