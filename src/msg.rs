@@ -9,13 +9,16 @@ pub struct InstantiateMsg {
     pub wefund: Option<String>,
     pub anchor_market: Option<String>,
     pub aust_token: Option<String>,
+    pub fundraising_contract: Option<String>,
+    pub vesting_contract: Option<String>
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     SetConfig { admin:Option<String>,  wefund: Option<String>, 
-        anchor_market: Option<String>, aust_token:Option<String> },
+        anchor_market: Option<String>, aust_token:Option<String> , 
+        fundraising_contract:Option<String>, vesting_contract:Option<String>},
     AddProject { 
         project_company: String,
         project_title: String,
@@ -31,11 +34,13 @@ pub enum ExecuteMsg {
         project_collected: Uint128,
         project_milestones: Vec<Milestone>,
         project_teammembers: Vec<TeamMember>,
-        vesting: Vec<VestingParameter>
+        vesting: Vec<VestingParameter>,
+        token_addr: String
     },
     RemoveProject{project_id: Uint128 },
 
     Back2Project { project_id: Uint128, backer_wallet: String, 
+        fundraising_stage: String, token_amount: Uint128, 
         otherchain:String, otherchain_wallet:String},
 
     CompleteProject{ project_id: Uint128 },

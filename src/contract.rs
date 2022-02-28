@@ -17,6 +17,8 @@ use crate::state::{Config, CONFIG, PROJECTSTATES, ProjectState, BackerState, Ves
 use crate::market::{ExecuteMsg as AnchorMarket, Cw20HookMsg,
     QueryMsg as AnchorQuery, EpochStateResponse};                    
 
+use crate::fundraising::{ExecuteMsg as Fundraising};
+
 // version info for migration info
 const CONTRACT_NAME: &str = "WEFUND";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -53,8 +55,19 @@ pub fn instantiate(
         .unwrap_or(Addr::unchecked(
             String::from("terra1hzh9vpxhsk8253se0vv5jj6etdvxu3nv8z07zu")));//main net
             // String::from("terra1ajt556dpzvjwl0kl5tzku3fc3p3knkg9mkv8jl")));//test net
+
+    let fundraising_contract = msg
+        .fundraising_contract
+        .and_then(|s| deps.api.addr_validate(s.as_str()).ok()) 
+        .unwrap_or(Addr::unchecked("".to_string()));
+
+    let vesting_contract = msg
+        .vesting_contract
+        .and_then(|s| deps.api.addr_validate(s.as_str()).ok()) 
+        .unwrap_or(Addr::unchecked("".to_string()));
+
     let config = Config {
-        owner, wefund, anchor_market, aust_token,
+        owner, wefund, anchor_market, aust_token, fundraising_contract, vesting_contract
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -73,8 +86,8 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::SetConfig{ admin, wefund, anchor_market, aust_token } 
-            => try_setconfig(deps, info, admin, wefund, anchor_market, aust_token),
+        ExecuteMsg::SetConfig{ admin, wefund, anchor_market, aust_token, fundraising_contract, vesting_contract } 
+            => try_setconfig(deps, info, admin, wefund, anchor_market, aust_token, fundraising_contract, vesting_contract),
         ExecuteMsg::AddProject { 
             project_company,
             project_title,
@@ -90,9 +103,10 @@ pub fn execute(
             project_collected,
             project_milestones,
             project_teammembers,
-            vesting
+            vesting,
+            token_addr
         } => 
-            try_addproject(deps, info, 
+            try_addproject(deps, _env, info, 
                 project_company,
                 project_title,
                 project_description,
@@ -107,11 +121,12 @@ pub fn execute(
                 project_collected,
                 project_milestones,
                 project_teammembers,
-                vesting
+                vesting,
+                token_addr
             ),
 
-        ExecuteMsg::Back2Project { project_id, backer_wallet , otherchain, otherchain_wallet} => 
-            try_back2project(deps, info, project_id, backer_wallet, otherchain, otherchain_wallet),
+        ExecuteMsg::Back2Project { project_id, backer_wallet, fundraising_stage, token_amount, otherchain, otherchain_wallet} => 
+            try_back2project(deps, info, project_id, backer_wallet, fundraising_stage, token_amount, otherchain, otherchain_wallet),
 
         ExecuteMsg::CompleteProject{ project_id } =>
             try_completeproject(deps, _env, project_id ),
@@ -565,10 +580,12 @@ pub fn remove_project(deps:DepsMut, _project_id:Uint128)
     Ok(Response::new())
 }
 pub fn try_setconfig(deps:DepsMut, info:MessageInfo,
-    admin:Option<String>, 
-    wefund:Option<String>, 
-    anchor_market:Option<String>, 
-    aust_token:Option<String>
+    admin: Option<String>, 
+    wefund: Option<String>, 
+    anchor_market: Option<String>, 
+    aust_token: Option<String>,
+    fundraising_contract: Option<String>,
+    vesting_contract: Option<String>
 ) -> Result<Response, ContractError>
 {
     //-----------check owner--------------------------
@@ -594,6 +611,14 @@ pub fn try_setconfig(deps:DepsMut, info:MessageInfo,
     config.aust_token = aust_token
         .and_then(|s| deps.api.addr_validate(s.as_str()).ok()) 
         .unwrap_or(config.aust_token);
+
+    config.fundraising_contract = fundraising_contract
+        .and_then(|s| deps.api.addr_validate(s.as_str()).ok()) 
+        .unwrap_or(config.fundraising_contract);
+
+    config.vesting_contract = vesting_contract
+        .and_then(|s| deps.api.addr_validate(s.as_str()).ok()) 
+        .unwrap_or(config.vesting_contract);
 
     CONFIG.save(deps.storage, &config)?;
 
@@ -807,6 +832,7 @@ pub fn try_failproject(
 
 pub fn try_addproject(
     deps:DepsMut,
+    _env: Env,
     _info: MessageInfo,
     _project_company: String,
     _project_title: String,
@@ -822,7 +848,8 @@ pub fn try_addproject(
     _project_collected: Uint128,
     _project_milestones: Vec<Milestone>,
     _project_teammembers: Vec<TeamMember>,
-    _vesting: Vec<VestingParameter>
+    _vesting: Vec<VestingParameter>,
+    _token_addr: String,
 ) -> Result<Response, ContractError> 
 {
     let community = COMMUNITY.load(deps.storage).unwrap();
@@ -832,6 +859,9 @@ pub fn try_addproject(
             Vote{wallet:x, voted: false}
         );
     }
+
+    let token_addr = deps.api.addr_validate(_token_addr.as_str())
+        .unwrap_or(Addr::unchecked("".to_string()));
 
     let new_project:ProjectState = ProjectState{
         project_company: _project_company,
@@ -865,10 +895,37 @@ pub fn try_addproject(
 
         teammember_states: _project_teammembers,
 
-        vesting: _vesting
+        vesting: _vesting,
+        token_addr: token_addr.clone(),
     };
 
-    save_projectstate(deps, &new_project)?;
+    save_projectstate(deps.storage, &new_project)?;
+
+    let config = CONFIG.load(deps.storage)?;
+    if config.fundraising_contract != Addr::unchecked("".to_string()) &&
+        token_addr != Addr::unchecked("".to_string())
+    {
+        //----------add fundraising project------------------------
+        let add_fundraising_project = WasmMsg::Execute {
+            contract_addr: config.fundraising_contract.to_string(),
+            msg: to_binary(
+                &Fundraising::AddProject {
+                    project_id: new_project.project_id,
+                    admin: _env.contract.address.to_string(),
+                    token_addr: token_addr.to_string(),
+                    vesting_addr: Some(config.vesting_contract.to_string()),
+                    start_time: None
+                }
+            ).unwrap(),
+            funds: vec![]
+        };
+
+        return Ok(Response::new()
+            .add_messages(vec![CosmosMsg::Wasm(add_fundraising_project)])
+            .add_attribute("action", "add project")
+            );
+    }
+
     Ok(Response::new()
         .add_attribute("action", "add project"))
 }
@@ -878,6 +935,8 @@ pub fn try_back2project(
     info: MessageInfo,
     project_id: Uint128, 
     backer_wallet: String,
+    fundraising_stage: String,
+    token_amount: Uint128,
     otherchain: String,
     otherchain_wallet: String,
 ) -> Result<Response, ContractError> 
@@ -954,6 +1013,8 @@ pub fn try_back2project(
         backer_needback = false;
     }
 
+    let mut msgs: Vec<CosmosMsg> = vec![];
+
     //---------check collection and switch to releasing status---------
     if communitybacker_needback == false && backer_needback == false{
         x.project_status = Uint128::new(3); //releasing
@@ -974,6 +1035,18 @@ pub fn try_back2project(
         for i in 0..(x.milestone_states.len() as usize){
             x.milestone_states[i].milestone_votes = milestone_votes.clone();
         }
+
+        //---------start vesting-----------------------------
+        let start_vesting = WasmMsg::Execute {
+            contract_addr: config.fundraising_contract.to_string(),
+            msg: to_binary(
+                &Fundraising::StartVesting {
+                    project_id: x.project_id
+                }
+            ).unwrap(),
+            funds: vec![]
+        };
+        msgs.push(CosmosMsg::Wasm(start_vesting));
     }
 
     PROJECTSTATES.update(deps.storage, project_id.u128().into(), |op| match op {
@@ -1002,17 +1075,36 @@ pub fn try_back2project(
             msg: to_binary(&AnchorMarket::DepositStable {}).unwrap(),
             funds: vec![fund_real_back]
     };
+    msgs.push(CosmosMsg::Wasm(deposite_project));
 
     //---------send to Wefund with 5/105--------------------
     let bank_wefund = BankMsg::Send { 
         to_address: config.wefund.to_string(),
         amount: vec![fund_wefund] 
     };
+    msgs.push(CosmosMsg::Bank(bank_wefund));
+
+    let x = PROJECTSTATES.load(deps.storage, project_id.u128().into())?;
+    let token_addr = x.token_addr;
+    if token_addr != "".to_string() {
+        //----------add fundraising user------------------------
+        let add_fundraising_user = WasmMsg::Execute {
+            contract_addr: config.fundraising_contract.to_string(),
+            msg: to_binary(
+                &Fundraising::AddUser {
+                    project_id: x.project_id,
+                    wallet: info.sender,
+                    stage: fundraising_stage,
+                    amount: token_amount,
+                }
+            ).unwrap(),
+            funds: vec![]
+        };
+        msgs.push(CosmosMsg::Wasm(add_fundraising_user));
+    }
 
     Ok(Response::new()
-    .add_messages(vec![
-        CosmosMsg::Wasm(deposite_project),
-        CosmosMsg::Bank(bank_wefund)])
+    .add_messages(msgs)
     .add_attribute("action", "back to project")
     )
 }

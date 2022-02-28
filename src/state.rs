@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Addr, Uint128, Coin, StdResult, DepsMut};
+use cosmwasm_std::{Addr, Uint128, Coin, StdResult, Storage};
 use cw_storage_plus::{Item, Map, U128Key};
 //------------Config---------------------------------------
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -10,6 +10,8 @@ pub struct Config {
     pub wefund: Addr,
     pub anchor_market: Addr,
     pub aust_token: Addr,
+    pub fundraising_contract: Addr,
+    pub vesting_contract: Addr,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
@@ -101,22 +103,23 @@ pub struct ProjectState{
     pub teammember_states: Vec<TeamMember>,
 //---------vesting-----------------------------------------------
     pub vesting: Vec<VestingParameter>,
+
+    pub token_addr: Addr,
 }
 pub const PROJECT_SEQ: Item<Uint128> = Item::new("prj_seq");
 pub const PROJECTSTATES: Map<U128Key, ProjectState> = Map::new("prj");
 
-pub fn save_projectstate(deps: DepsMut, _prj: &ProjectState) 
+pub fn save_projectstate(store: &mut dyn Storage, _prj: &ProjectState) 
     -> StdResult<()> 
 {
     // increment id if exists, or return 1
-    let id = PROJECT_SEQ.load(deps.storage)?;
+    let id = PROJECT_SEQ.load(store)?;
     let id = id.checked_add(Uint128::new(1))?;
-    PROJECT_SEQ.save(deps.storage, &id)?;
+    PROJECT_SEQ.save(store, &id)?;
 
-    // save pot with id
     let mut project = _prj.clone();
     project.project_id = id.clone();
-    PROJECTSTATES.save(deps.storage, id.u128().into(), &project)
+    PROJECTSTATES.save(store, id.u128().into(), &project)
 }
 
 //------------community array------------------------------------------------
