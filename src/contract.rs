@@ -17,7 +17,8 @@ use crate::state::{Config, CONFIG, PROJECTSTATES, ProjectState, BackerState, Ves
 use crate::market::{ExecuteMsg as AnchorMarket, Cw20HookMsg,
     QueryMsg as AnchorQuery, EpochStateResponse};                    
 
-use crate::fundraising::{ExecuteMsg as Fundraising};
+use crate::fundraising::{ExecuteMsg as FundraisingMsg, VestingParameter as FundVestingParam};
+use crate::vesting::{ExecuteMsg as VestingMsg};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "WEFUND";
@@ -87,7 +88,7 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::SetConfig{ admin, wefund, anchor_market, aust_token, fundraising_contract, vesting_contract } 
-            => try_setconfig(deps, info, admin, wefund, anchor_market, aust_token, fundraising_contract, vesting_contract),
+            => try_setconfig(deps, _env, info, admin, wefund, anchor_market, aust_token, fundraising_contract, vesting_contract),
         ExecuteMsg::AddProject { 
             project_company,
             project_title,
@@ -579,7 +580,7 @@ pub fn remove_project(deps:DepsMut, _project_id:Uint128)
     PROJECTSTATES.remove(deps.storage, U128Key::new(_project_id.u128()));
     Ok(Response::new())
 }
-pub fn try_setconfig(deps:DepsMut, info:MessageInfo,
+pub fn try_setconfig(deps:DepsMut, _env:Env, info:MessageInfo,
     admin: Option<String>, 
     wefund: Option<String>, 
     anchor_market: Option<String>, 
@@ -621,6 +622,39 @@ pub fn try_setconfig(deps:DepsMut, info:MessageInfo,
         .unwrap_or(config.vesting_contract);
 
     CONFIG.save(deps.storage, &config)?;
+
+    if config.fundraising_contract != "".to_string() && config.vesting_contract != "".to_string()
+    {
+        //----------add fundraising project------------------------
+        let set_fundraising_config = WasmMsg::Execute {
+            contract_addr: config.fundraising_contract.to_string(),
+            msg: to_binary(
+                &FundraisingMsg::SetConfig {
+                    admin: _env.contract.address.to_string(),
+                    vesting_addr: config.vesting_contract.to_string()
+                }
+            ).unwrap(),
+            funds: vec![]
+        };
+
+        let set_vesting_config = WasmMsg::Execute {
+            contract_addr: config.vesting_contract.to_string(),
+            msg: to_binary(
+                &VestingMsg::SetConfig {
+                    admin: config.fundraising_contract.to_string(),
+                }
+            ).unwrap(),
+            funds: vec![]
+        };
+
+        return Ok(Response::new()
+            .add_messages(vec![
+                CosmosMsg::Wasm(set_fundraising_config),
+                CosmosMsg::Wasm(set_vesting_config),
+            ])
+            .add_attribute("action", "add project")
+        );
+    }
 
     Ok(Response::new()
         .add_attribute("action", "SetConfig"))                                
@@ -895,7 +929,7 @@ pub fn try_addproject(
 
         teammember_states: _project_teammembers,
 
-        vesting: _vesting,
+        vesting: _vesting.clone(),
         token_addr: token_addr.clone(),
     };
 
@@ -904,15 +938,23 @@ pub fn try_addproject(
     let config = CONFIG.load(deps.storage)?;
     if config.fundraising_contract != "".to_string() && token_addr != "".to_string()
     {
+        let mut vesting_params: Vec<FundVestingParam> = Vec::new();
+        for param in _vesting{
+            vesting_params.push(FundVestingParam{
+                soon: param.stage_soon,
+                after: param.stage_after,
+                period: param.stage_period,
+            })
+        }
         //----------add fundraising project------------------------
         let add_fundraising_project = WasmMsg::Execute {
             contract_addr: config.fundraising_contract.to_string(),
             msg: to_binary(
-                &Fundraising::AddProject {
+                &FundraisingMsg::AddProject {
                     project_id: new_project.project_id,
                     admin: _env.contract.address.to_string(),
                     token_addr: token_addr.to_string(),
-                    vesting_addr: Some(config.vesting_contract.to_string()),
+                    vesting_params: vesting_params,
                     start_time: None
                 }
             ).unwrap(),
@@ -1058,7 +1100,7 @@ pub fn try_back2project(
             let start_vesting = WasmMsg::Execute {
                 contract_addr: config.fundraising_contract.to_string(),
                 msg: to_binary(
-                    &Fundraising::StartVesting {
+                    &FundraisingMsg::StartVesting {
                         project_id: x.project_id
                     }
                 ).unwrap(),
@@ -1109,7 +1151,7 @@ pub fn try_back2project(
         let add_fundraising_user = WasmMsg::Execute {
             contract_addr: config.fundraising_contract.to_string(),
             msg: to_binary(
-                &Fundraising::AddUser {
+                &FundraisingMsg::AddUser {
                     project_id: x.project_id,
                     wallet: info.sender,
                     stage: fundraising_stage,

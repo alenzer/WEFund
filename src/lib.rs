@@ -5,6 +5,7 @@ pub mod msg;
 pub mod state;
 pub mod market;
 pub mod fundraising;
+pub mod vesting;
 
 pub use crate::error::ContractError;
 
