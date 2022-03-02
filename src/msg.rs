@@ -9,7 +9,6 @@ pub struct InstantiateMsg {
     pub wefund: Option<String>,
     pub anchor_market: Option<String>,
     pub aust_token: Option<String>,
-    pub fundraising_contract: Option<String>,
     pub vesting_contract: Option<String>
 }
 
@@ -18,7 +17,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     SetConfig { admin:Option<String>,  wefund: Option<String>, 
         anchor_market: Option<String>, aust_token:Option<String> , 
-        fundraising_contract:Option<String>, vesting_contract:Option<String>},
+        vesting_contract:Option<String>},
     AddProject { 
         project_company: String,
         project_title: String,

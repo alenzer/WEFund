@@ -10,7 +10,6 @@ pub struct Config {
     pub wefund: Addr,
     pub anchor_market: Addr,
     pub aust_token: Addr,
-    pub fundraising_contract: Addr,
     pub vesting_contract: Addr,
 }
 

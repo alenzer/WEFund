@@ -12,26 +12,33 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     SetConfig {
         admin: String,
-        vesting_addr: String,
     },
     AddProject {
         project_id: Uint128,
         admin: String, 
         token_addr: String,
         vesting_params: Vec<VestingParameter>,
-        start_time: Option<Uint128>,
+        start_time: Uint128 
     },
-    SetProjectConfig { 
+    StartRelease{
         project_id: Uint128,
-        admin: Option<String>, 
-        token_addr: Option<String>,
-        start_time: Option<Uint128> 
+        start_time: Uint128
     },
     AddUser {
         project_id: Uint128,
         wallet: Addr,
         stage: String,
         amount: Uint128,
+    },
+    SetProjectInfo{
+        project_id: Uint128,
+        project_info: ProjectInfo
+    },
+    SetProjectConfig { 
+        project_id: Uint128,
+        admin:String, 
+        token_addr:String, 
+        start_time: Uint128 
     },
     SetVestingParameters{
         project_id: Uint128,
@@ -64,7 +71,7 @@ pub enum ExecuteMsg {
         wallet: Addr,
         amount: Uint128
     },
-    StartVesting {
+    ClaimPendingTokens{
         project_id: Uint128
     }
 }
@@ -72,11 +79,13 @@ pub enum ExecuteMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    GetConfig{ project_id: Uint128 },
-    GetProjectInfo{ project_id: Uint128 },
-    GetAllProjectInfo { },
-    GetBalance{ project_id: Uint128, wallet: String },
-    GetOwner{ },
+    GetConfig { project_id: Uint128 },
+    GetPendingTokens { project_id: Uint128, wallet: String },
+    GetUserInfo { project_id: Uint128, wallet: String },
+    GetBalance { project_id: Uint128, wallet: String },
+    GetProjectInfo { project_id: Uint128 },
+    GetAllProjectInfo {},
+    GetOwner{ }
 }
 
 //------------Config---------------------------------------
