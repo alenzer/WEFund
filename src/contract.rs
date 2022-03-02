@@ -18,7 +18,6 @@ use crate::market::{ExecuteMsg as AnchorMarket, Cw20HookMsg,
     QueryMsg as AnchorQuery, EpochStateResponse};                    
 
 use crate::fundraising::{ExecuteMsg as FundraisingMsg, VestingParameter as FundVestingParam};
-use crate::vesting::{ExecuteMsg as VestingMsg};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "WEFUND";
@@ -623,38 +622,27 @@ pub fn try_setconfig(deps:DepsMut, _env:Env, info:MessageInfo,
 
     CONFIG.save(deps.storage, &config)?;
 
-    if config.fundraising_contract != "".to_string() && config.vesting_contract != "".to_string()
-    {
-        //----------add fundraising project------------------------
-        let set_fundraising_config = WasmMsg::Execute {
-            contract_addr: config.fundraising_contract.to_string(),
-            msg: to_binary(
-                &FundraisingMsg::SetConfig {
-                    admin: _env.contract.address.to_string(),
-                    vesting_addr: config.vesting_contract.to_string()
-                }
-            ).unwrap(),
-            funds: vec![]
-        };
+    // if config.fundraising_contract != "".to_string() && config.vesting_contract != "".to_string()
+    // {
+    //     //----------add fundraising project------------------------
+    //     let set_fundraising_config = WasmMsg::Execute {
+    //         contract_addr: config.fundraising_contract.to_string(),
+    //         msg: to_binary(
+    //             &FundraisingMsg::SetConfig {
+    //                 admin: _env.contract.address.to_string(),
+    //                 vesting_addr: config.vesting_contract.to_string()
+    //             }
+    //         ).unwrap(),
+    //         funds: vec![]
+    //     };
 
-        let set_vesting_config = WasmMsg::Execute {
-            contract_addr: config.vesting_contract.to_string(),
-            msg: to_binary(
-                &VestingMsg::SetConfig {
-                    admin: config.fundraising_contract.to_string(),
-                }
-            ).unwrap(),
-            funds: vec![]
-        };
-
-        return Ok(Response::new()
-            .add_messages(vec![
-                CosmosMsg::Wasm(set_fundraising_config),
-                CosmosMsg::Wasm(set_vesting_config),
-            ])
-            .add_attribute("action", "add project")
-        );
-    }
+    //     return Ok(Response::new()
+    //         .add_messages(vec![
+    //             CosmosMsg::Wasm(set_fundraising_config)
+    //         ])
+    //         .add_attribute("action", "add project")
+    //     );
+    // }
 
     Ok(Response::new()
         .add_attribute("action", "SetConfig"))                                
@@ -897,7 +885,7 @@ pub fn try_addproject(
     let token_addr = deps.api.addr_validate(_token_addr.as_str())
         .unwrap_or(Addr::unchecked("".to_string()));
 
-    let new_project:ProjectState = ProjectState{
+    let mut new_project:ProjectState = ProjectState{
         project_company: _project_company,
         project_title: _project_title,
         project_description: _project_description,
@@ -933,7 +921,7 @@ pub fn try_addproject(
         token_addr: token_addr.clone(),
     };
 
-    save_projectstate(deps.storage, &new_project)?;
+    save_projectstate(deps.storage, &mut new_project)?;
 
     let config = CONFIG.load(deps.storage)?;
     if config.fundraising_contract != "".to_string() && token_addr != "".to_string()
@@ -964,6 +952,7 @@ pub fn try_addproject(
         return Ok(Response::new()
             .add_messages(vec![CosmosMsg::Wasm(add_fundraising_project)])
             .add_attribute("action", "add project")
+            .add_attribute("id", new_project.project_id)
             );
     }
 

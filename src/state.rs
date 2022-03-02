@@ -109,7 +109,7 @@ pub struct ProjectState{
 pub const PROJECT_SEQ: Item<Uint128> = Item::new("prj_seq");
 pub const PROJECTSTATES: Map<U128Key, ProjectState> = Map::new("prj");
 
-pub fn save_projectstate(store: &mut dyn Storage, _prj: &ProjectState) 
+pub fn save_projectstate(store: &mut dyn Storage, _prj: &mut ProjectState) 
     -> StdResult<()> 
 {
     // increment id if exists, or return 1
@@ -117,9 +117,8 @@ pub fn save_projectstate(store: &mut dyn Storage, _prj: &ProjectState)
     let id = id.checked_add(Uint128::new(1))?;
     PROJECT_SEQ.save(store, &id)?;
 
-    let mut project = _prj.clone();
-    project.project_id = id.clone();
-    PROJECTSTATES.save(store, id.u128().into(), &project)
+    _prj.project_id = id.clone();
+    PROJECTSTATES.save(store, id.u128().into(), &_prj)
 }
 
 //------------community array------------------------------------------------
