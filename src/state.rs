@@ -53,7 +53,7 @@ pub struct TeamMember{
 //--------------Milestone---------------------------------------
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct VestingParameter{
-    pub stage: String,
+    pub stage_title: String,
     pub stage_price: Uint128,
     pub stage_amount: Uint128,
     pub stage_soon: Uint128,
@@ -82,7 +82,7 @@ pub struct ProjectState{
 
     //0:wefund voting 1:community voting 2:fundrasing 3:releasing 4:done 5:fail
     pub project_status: Uint128, 
-    pub fundraising_stage: String, //"seed", "presale", "idos"
+    pub fundraising_stage: Uint128, 
 
     pub backerbacked_amount: Uint128,
     pub communitybacked_amount: Uint128,

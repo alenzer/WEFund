@@ -371,7 +371,7 @@ pub fn try_setmilestonevote(deps: DepsMut, _env:Env, info:MessageInfo, project_i
     )
 }
 
-pub fn try_setfundraisingstage(deps: DepsMut, project_id: Uint128, stage: String)
+pub fn try_setfundraisingstage(deps: DepsMut, project_id: Uint128, stage: Uint128)
     -> Result<Response, ContractError>
 {
     PROJECTSTATES.update(deps.storage, project_id.u128().into(), |op| match op {
@@ -869,7 +869,7 @@ pub fn try_addproject(
         creator_wallet: deps.api.addr_validate(&_creator_wallet).unwrap(),
         project_collected: _project_collected,
         project_status: Uint128::zero(),
-        fundraising_stage: "seed".to_string(),
+        fundraising_stage: Uint128::zero(),
 
         backerbacked_amount: Uint128::zero(),
         communitybacked_amount: Uint128::zero(),
@@ -934,7 +934,7 @@ pub fn try_back2project(
     info: MessageInfo,
     project_id: Uint128, 
     backer_wallet: String,
-    fundraising_stage: String,
+    fundraising_stage: Uint128,
     token_amount: Uint128,
     otherchain: String,
     otherchain_wallet: String,

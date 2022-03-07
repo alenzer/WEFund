@@ -39,7 +39,7 @@ pub enum ExecuteMsg {
     RemoveProject{project_id: Uint128 },
 
     Back2Project { project_id: Uint128, backer_wallet: String, 
-        fundraising_stage: String, token_amount: Uint128, 
+        fundraising_stage: Uint128, token_amount: Uint128, 
         otherchain:String, otherchain_wallet:String},
 
     CompleteProject{ project_id: Uint128 },
@@ -52,7 +52,7 @@ pub enum ExecuteMsg {
 
     WefundApprove{project_id:Uint128, deadline:Uint128},
     SetCommunityVote{project_id: Uint128, wallet: String, voted: bool},
-    SetFundraisingStage{project_id: Uint128, stage: String},
+    SetFundraisingStage{project_id: Uint128, stage: Uint128},
     
     SetMilestoneVote{project_id: Uint128, wallet:String, voted: bool},
 
