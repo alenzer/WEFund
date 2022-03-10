@@ -61,6 +61,14 @@ pub struct VestingParameter{
     pub stage_period: Uint128   
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub enum ProjectStatus{
+    WefundVote,
+    Fundraising,
+    Releasing,
+    Done,
+    Fail
+}
 //------------ project state--------------------------------
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ProjectState{
@@ -80,8 +88,8 @@ pub struct ProjectState{
     pub creator_wallet: Addr,
     pub project_collected: Uint128,
 
-    //0:wefund voting 1:community voting 2:fundrasing 3:releasing 4:done 5:fail
-    pub project_status: Uint128, 
+    //0:wefund voting 1:fundrasing 2:releasing 3:done 4:fail
+    pub project_status: ProjectStatus, 
     pub fundraising_stage: Uint128, 
 
     pub backerbacked_amount: Uint128,
@@ -95,9 +103,6 @@ pub struct ProjectState{
 //----------milestone states-----------------------------------------
     pub milestone_states: Vec<Milestone>,
     pub project_milestonestep: Uint128, 
-//---------community votes--------------------------------------------
-    pub community_votes: Vec<Vote>,
-    pub community_vote_deadline: Uint128,
 //---------team members-----------------------------------------------
     pub teammember_states: Vec<TeamMember>,
 //---------vesting-----------------------------------------------

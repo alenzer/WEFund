@@ -50,8 +50,7 @@ pub enum ExecuteMsg {
     AddCommunitymember{wallet: String},
     RemoveCommunitymember{wallet: String},
 
-    WefundApprove{project_id:Uint128, deadline:Uint128},
-    SetCommunityVote{project_id: Uint128, wallet: String, voted: bool},
+    WefundApprove{project_id:Uint128},
     SetFundraisingStage{project_id: Uint128, stage: Uint128},
     
     SetMilestoneVote{project_id: Uint128, wallet:String, voted: bool},

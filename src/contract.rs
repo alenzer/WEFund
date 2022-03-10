@@ -12,7 +12,7 @@ use cw20::{Cw20ExecuteMsg, Cw20QueryMsg, BalanceResponse as Cw20BalanceResponse,
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg};
 use crate::state::{Config, CONFIG, PROJECTSTATES, ProjectState, BackerState, VestingParameter,
-        PROJECT_SEQ, COMMUNITY, Milestone, Vote, save_projectstate, TeamMember};
+        PROJECT_SEQ, COMMUNITY, Milestone, Vote, save_projectstate, TeamMember, ProjectStatus};
 
 use crate::market::{ExecuteMsg as AnchorMarket, Cw20HookMsg,
     QueryMsg as AnchorQuery, EpochStateResponse};                    
@@ -141,11 +141,8 @@ pub fn execute(
         ExecuteMsg::RemoveCommunitymember{wallet} =>
             try_removecommunitymember(deps, wallet),
 
-        ExecuteMsg::WefundApprove{project_id, deadline} =>
-            try_wefundapprove(deps, info, project_id, deadline),
-
-        ExecuteMsg::SetCommunityVote{project_id, wallet, voted} =>
-            try_setcommunityvote(deps, project_id, wallet, voted),
+        ExecuteMsg::WefundApprove{project_id} =>
+            try_wefundapprove(deps, info, project_id),
 
         ExecuteMsg::SetFundraisingStage{project_id, stage} =>
             try_setfundraisingstage(deps, project_id, stage),
@@ -173,7 +170,17 @@ pub fn try_setprojectstatus(deps: DepsMut, info: MessageInfo, project_id: Uint12
     PROJECTSTATES.update(deps.storage, project_id.u128().into(), |op| match op {
         None => Err(ContractError::NotRegisteredProject {}),
         Some(mut project) => {
-            project.project_status = status;
+            if status == Uint128::zero() {
+                project.project_status = ProjectStatus::WefundVote;
+            } else if status == Uint128::from(1u64){
+                project.project_status = ProjectStatus::Fundraising;
+            } else if status == Uint128::from(2u64){
+                project.project_status = ProjectStatus::Releasing;
+            } else if status == Uint128::from(3u64){
+                project.project_status = ProjectStatus::Done;
+            } else if status == Uint128::from(4u64){
+                project.project_status = ProjectStatus::Fail;
+            }
             Ok(project)
         }
     })?;
@@ -208,8 +215,8 @@ pub fn try_releasemilestone(deps: DepsMut, _env: Env, _project_id: Uint128 )
     let x:ProjectState = PROJECTSTATES.load(deps.storage, _project_id.u128().into())?;
 
     //--------Checking project status-------------------------
-    if x.project_status != Uint128::new(3){//only releasing status
-        return Err(ContractError::NotCorrectStatus{status: x.project_status});
+    if x.project_status != ProjectStatus::Releasing{//only releasing status
+        return Err(ContractError::NotCorrectStatus{status: x.project_status as u32});
     }
 
     //---------get hope to release amount---------------------------
@@ -303,8 +310,8 @@ pub fn try_setmilestonevote(deps: DepsMut, _env:Env, info:MessageInfo, project_i
     let mut x:ProjectState = PROJECTSTATES.load(deps.storage, project_id.u128().into())?;
     
     //-------check project status-------------------
-    if x.project_status != Uint128::new(3) { //only releasing status
-        return Err(ContractError::NotCorrectStatus{status:x.project_status});
+    if x.project_status != ProjectStatus::Releasing { //only releasing status
+        return Err(ContractError::NotCorrectStatus{status:x.project_status as u32});
     }
 
     let wallet = deps.api.addr_validate(&wallet).unwrap();
@@ -340,7 +347,7 @@ pub fn try_setmilestonevote(deps: DepsMut, _env:Env, info:MessageInfo, project_i
         
         //-----------check milestone done---------------------
         if x.project_milestonestep >= Uint128::new(x.milestone_states.len() as u128){
-            x.project_status = Uint128::new(4); //switch to project done status
+            x.project_status = ProjectStatus::Done; //switch to project done status
         }
 
         //-------update-------------------------
@@ -386,48 +393,8 @@ pub fn try_setfundraisingstage(deps: DepsMut, project_id: Uint128, stage: Uint12
     .add_attribute("action", "Set Fundraising stage")
     )
 }
-pub fn try_setcommunityvote(deps: DepsMut, project_id: Uint128, wallet: String, voted: bool)
-    -> Result<Response, ContractError>
-{
-    let mut x:ProjectState = PROJECTSTATES.load(deps.storage, project_id.u128().into())?;
-    
-    //-------check project status-------------------
-    if x.project_status != Uint128::new(1) { //only community voting status
-        return Err(ContractError::NotCorrectStatus{status:x.project_status});
-    }
-    let wallet = deps.api.addr_validate(&wallet).unwrap();
-    let index = x.community_votes.iter().position(|x|x.wallet == wallet).unwrap();
 
-    //------set vot status--------------------
-    x.community_votes[index].voted = voted;
-
-    //------check all voted-----------------
-    let mut voted_count: u128 = 0;
-    for vote in x.community_votes.clone(){
-        if vote.voted{
-            voted_count += 1;
-        }
-    }
-    if voted_count >= (x.community_votes.len()/2) as u128 {
-        x.project_status = Uint128::new(2); //switch to fundrasing status
-    }
-
-    //-------update-------------------------
-    PROJECTSTATES.update(deps.storage, project_id.u128().into(), |op| match op {
-        None => Err(ContractError::NotRegisteredProject {}),
-        Some(mut project) => {
-            project.project_status = x.project_status;
-            project.community_votes = x.community_votes;
-            Ok(project)
-        }
-    })?;
-
-    Ok(Response::new()
-    .add_attribute("action", "Set community vote")
-    )
-}
-
-pub fn try_wefundapprove(deps: DepsMut, info:MessageInfo, project_id: Uint128, deadline:Uint128)
+pub fn try_wefundapprove(deps: DepsMut, info:MessageInfo, project_id: Uint128)
     ->Result<Response, ContractError>
 {
     //-----------check owner--------------------------
@@ -439,16 +406,15 @@ pub fn try_wefundapprove(deps: DepsMut, info:MessageInfo, project_id: Uint128, d
     let mut x:ProjectState = PROJECTSTATES.load(deps.storage, project_id.u128().into())?;
     
     //-------check project status-------------------
-    if x.project_status != Uint128::zero() { //only wefund approve status
-        return Err(ContractError::NotCorrectStatus{status:x.project_status});
+    if x.project_status != ProjectStatus::WefundVote { //only wefund approve status
+        return Err(ContractError::NotCorrectStatus{status:x.project_status as u32});
     }
-    x.project_status = Uint128::new(1); //switch to community voting status
+    x.project_status = ProjectStatus::Fundraising; //switch to fundraising status
 
     PROJECTSTATES.update(deps.storage, project_id.u128().into(), |op| match op {
         None => Err(ContractError::NotRegisteredProject {}),
         Some(mut project) => {
             project.project_status = x.project_status;
-            project.community_vote_deadline = deadline;
             Ok(project)
         }
     })?;
@@ -625,8 +591,8 @@ pub fn try_completeproject(
     let x:ProjectState = PROJECTSTATES.load(deps.storage, _project_id.u128().into())?;
 
     //--------Checking project status-------------------------
-    if x.project_status != Uint128::new(3){//only releasing status
-        return Err(ContractError::NotCorrectStatus{status: x.project_status});
+    if x.project_status != ProjectStatus::Releasing{//only releasing status
+        return Err(ContractError::NotCorrectStatus{status: x.project_status as u32});
     }
 
     //---------calc hope to release amount---------------------------
@@ -718,8 +684,8 @@ pub fn try_failproject(
     let x:ProjectState = PROJECTSTATES.load(deps.storage, _project_id.u128().into())?;
 
     //--------Checking project status-------------------------
-    if x.project_status != Uint128::new(3){//only releasing status
-        return Err(ContractError::NotCorrectStatus{status: x.project_status});
+    if x.project_status != ProjectStatus::Releasing{//only releasing status
+        return Err(ContractError::NotCorrectStatus{status: x.project_status as u32});
     }
 
     //---------calc hope to release amount---------------------------
@@ -809,7 +775,7 @@ pub fn try_failproject(
     PROJECTSTATES.update(deps.storage, _project_id.u128().into(), |op| match op {
         None => Err(ContractError::NotRegisteredProject {}),
         Some(mut project) => {
-            project.project_status = Uint128::new(5); //fail
+            project.project_status = ProjectStatus::Fail; //fail
             Ok(project)
         }
     })?;
@@ -842,14 +808,6 @@ pub fn try_addproject(
     _token_addr: String,
 ) -> Result<Response, ContractError> 
 {
-    let community = COMMUNITY.load(deps.storage).unwrap();
-    let mut community_votes = Vec::new();
-    for x in community{
-        community_votes.push(
-            Vote{wallet:x, voted: false}
-        );
-    }
-
     let token_addr = deps.api.addr_validate(_token_addr.as_str())
         .unwrap_or(Addr::unchecked("".to_string()));
 
@@ -868,7 +826,7 @@ pub fn try_addproject(
         project_id: Uint128::zero(), //auto increment
         creator_wallet: deps.api.addr_validate(&_creator_wallet).unwrap(),
         project_collected: _project_collected,
-        project_status: Uint128::zero(),
+        project_status: ProjectStatus::WefundVote,
         fundraising_stage: Uint128::zero(),
 
         backerbacked_amount: Uint128::zero(),
@@ -879,9 +837,6 @@ pub fn try_addproject(
 
         milestone_states: _project_milestones,
         project_milestonestep: Uint128::zero(), //first milestonestep
-
-        community_votes: community_votes,
-        community_vote_deadline: Uint128::zero(),
 
         teammember_states: _project_teammembers,
 
@@ -947,8 +902,8 @@ pub fn try_back2project(
     }
     //--------Get project info------------------------------------
     let mut x = PROJECTSTATES.load(deps.storage, project_id.u128().into())?;
-    if x.project_status != Uint128::new(2){//only fundrasing status
-        return Err(ContractError::NotCorrectStatus{status: x.project_status});
+    if x.project_status != ProjectStatus::Fundraising{//only fundraising status
+        return Err(ContractError::NotCorrectStatus{status: x.project_status as u32});
     }
 
     //--------check sufficient back--------------------
@@ -1016,7 +971,7 @@ pub fn try_back2project(
 
     //---------check collection and switch to releasing status---------
     if communitybacker_needback == false && backer_needback == false{
-        x.project_status = Uint128::new(3); //releasing
+        x.project_status = ProjectStatus::Releasing; //releasing
 
         //------add milestone votes in every milestone---------------
         let mut milestone_votes = Vec::new();
@@ -1079,13 +1034,13 @@ pub fn try_back2project(
     PROJECTSTATES.update(deps.storage, project_id.u128().into(), |op| match op {
         None => Err(ContractError::NotRegisteredProject {}),
         Some(mut project) => {
-            project.project_status = x.project_status;
+            project.project_status = x.project_status.clone();
             project.communitybacked_amount = x.communitybacked_amount;
             project.backerbacked_amount = x.backerbacked_amount;
             project.backer_states = x.backer_states;
             project.communitybacker_states = x.communitybacker_states;
             
-            if x.project_status == Uint128::new(3){//only on switching releasing status
+            if x.project_status == ProjectStatus::Releasing{//only on switching releasing status
                 project.milestone_states = x.milestone_states;
             }
             Ok(project)

@@ -1,6 +1,7 @@
 use cosmwasm_std::StdError;
 use thiserror::Error;
 use cosmwasm_std::{Uint128};
+use crate::state::{ProjectStatus};
 
 #[derive(Error, Debug)]
 pub enum ContractError {
@@ -36,7 +37,7 @@ pub enum ContractError {
 
     #[error("Not correct status : {status}")]
     NotCorrectStatus{
-        status: Uint128,
+        status: u32,
     },
 
     #[error("Alreay voted")]
